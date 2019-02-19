@@ -8,13 +8,17 @@ Requires MySQL and NodeJS. For local development install NodeJS from [nodejs.org
 
 ## Database 
 
-Create a database, schema, and user
+Create a database and tables
 
-    $ mysql -uroot < schema.ddl 
+    $ mysql -uroot < create-schema.sql
+
+Edit `create-user.sql` and set a strong password for the node user. Run the script to create the user.
+
+    $ mysql -uroot < create-user.sql
 
 ## Environment
 
-The server gets the connection and device information from environment variables. For local development, edit `.env` and then source the file.
+The server gets the connection information from environment variables. For local development, edit `.env` and then source the file.
 
     $ source .env
 
@@ -30,25 +34,61 @@ Run the server with node
 
     $ node app.js
 
-## Testing
+For more verbose logging try
 
-### Insert
+    $ DEBUG=app:* node app.js
 
-    curl -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 -d sensor_data=123 http://localhost:8081/add
+## Authentication
 
-    curl -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 \
-         -d sensor_data='"temperature":"70.9","humidity":"22.5"}' \
-         http://localhost:8081/add
+All requests must pass the device MAC address and a matching session key. These can be passed as query parameters or encoded as form data.
 
-### Query
+Form encoded
 
-Get a list of all MAC address that have submitted data
+    curl -X GET -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data
 
-    curl http://localhost:8081/mac
+Query parameters. Note that `&amp;` must be escaped with a backslash when using `curl`.
+
+    curl -X http://localhost:8081/data?macAddress=AA:BB:CC:DD:EE:FF\&sessionKey=12345678
+
+Add authorized devices by inserting new records in the database.
+    
+    INSERT INTO authorized_device (mac_address, session_key) VALUES ('AA:BB:CC:DD:EE:FF', '12345678');
+
+## API
+
+    POST /data       - create a new record in the database
+    GET /data        - read all the records for a MAC address
+    GET /data/:id    - read one record
+    DELETE /data/:id - delete one record
+
+### Create
+
+A HTTP POST to `/data` will insert new records. If the record is inserted, the caller will receive a status 201 and the transactionID.
+
+    curl -X POST -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 -d data="hello, world" http://localhost:8081/data
+
+    curl -X POST -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 \
+         -d data='{"temperature":70.9,"humidity": 22.5}' \
+         http://localhost:8081/data
+
+### Get
+
+#### Read all records
+
+A HTTP GET to `/data` will list records for MAC address
 
 See the data for any MAC address
 
-    curl http://localhost:8081/data/AA:BB:CC:DD:EE:FF
+    curl -X GET -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data
 
+#### Read one record
 
+A HTTP GET to `/data/:id` will list records for an id if the correct MAC address is supplied
 
+    curl -X GET -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data/1
+
+### Delete
+
+A HTTP DELETE to `/data/:id` will delete the records from the database
+
+    curl -X DELETE -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data/1
