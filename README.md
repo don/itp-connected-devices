@@ -68,7 +68,7 @@ A HTTP POST to `/data` will insert new records. If the record is inserted, the c
     curl -X POST -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 -d data="hello, world" http://localhost:8081/data
 
     curl -X POST -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 \
-         -d data='{"temperature":70.9,"humidity": 22.5}' \
+         -d data='{"temperature": 70.9,"humidity": 22.5}' \
          http://localhost:8081/data
 
 ### Get
@@ -77,18 +77,16 @@ A HTTP POST to `/data` will insert new records. If the record is inserted, the c
 
 A HTTP GET to `/data` will list records for MAC address
 
-See the data for any MAC address
-
     curl -X GET -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data
 
 #### Read one record
 
-A HTTP GET to `/data/:id` will list records for an id if the correct MAC address is supplied
+A HTTP GET to `/data/:id` will get the record by id for the supplied MAC address
 
     curl -X GET -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data/1
 
 ### Delete
 
-A HTTP DELETE to `/data/:id` will delete the records from the database
+A HTTP DELETE to `/data/:id` will delete the record from the database
 
     curl -X DELETE -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data/1

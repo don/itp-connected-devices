@@ -70,7 +70,7 @@ app.post('/data', function(req,res) {
     return;
   }
   
-  const insert = 'INSERT INTO Zreadings (mac_address, data_point) VALUES (?,?)';
+  const insert = 'INSERT INTO readings (mac_address, data_point) VALUES (?,?)';
   const params = [macAddress, data];
   debug(insert, params);
 
