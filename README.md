@@ -6,11 +6,11 @@ Requires MySQL and NodeJS. For local development install NodeJS from [nodejs.org
 
 Start the MySQL server with
 
-  mysql.server start
+    $ mysql.server start
 
 If you'd like the server to run in the background and restart at login
 
-  brew services start mysql
+    $ brew services start mysql
 
 ## Database 
 
