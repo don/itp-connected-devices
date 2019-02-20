@@ -107,15 +107,15 @@ I use [UFW](https://www.digitalocean.com/community/tutorials/how-to-set-up-a-fir
 
     ufw allow from 93.184.216.34 to any port 3306
 
-I use the nginx webserver and redirect traffic to the nodejs process. This lets nginx handle TLS and keep the node app simpler. Follow [these instructions](https://www.digitalocean.com/community/tutorials/how-to-secure-nginx-with-let-s-encrypt-on-ubuntu-18-04) to get nginx running with a TLS certificate from [Let's Encrypt](https://letsencrypt.org/).
+The nginx webserver can redirect some requests to the nodejs app. This lets nginx handle TLS and keep the node app simpler. Follow [these instructions](https://www.digitalocean.com/community/tutorials/how-to-secure-nginx-with-let-s-encrypt-on-ubuntu-18-04) to get nginx running with a TLS certificate from [Let's Encrypt](https://letsencrypt.org/).
 
-Once nginx is running we need to configure it to redirect traffic from nginx to the nodejs process. The simplest way to do this is with proxy pass. This rule sends `/conndev/` to node, so our urls look like `/conndev/data`
+Once nginx is running it needs to be configure to redirect traffic from nginx to the express app. The simplest way to do this is with proxy pass. This rule sends `/conndev/` to node, so the urls now have a prefix e.g. `/conndev/data`
 
     location /conndev/ {
         proxy_pass http://localhost:8081/;
     }
 
-I think a better solution is to redirect `/data` and rewrite the URL so we don't get a `/data/data` URL. This keeps the URLs the same between localhost and production. Edit `/etc/nginx/sites-available/default` and add the follow code
+A better solution is to redirect `/data` and rewrite the URL so it doesn't look like `/data/data`. This solution keeps the URLs the same between development and production. Edit `/etc/nginx/sites-available/default` and add the follow code
 
     location  /data {
         rewrite /data/(.*) /$1  break;
