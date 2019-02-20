@@ -1,32 +1,13 @@
 # Connected Devices Server
 
-Requires MySQL and NodeJS. For local development install NodeJS from [nodejs.org](https://nodejs.org). Install MySQL using [Homebrew](https://brew.sh).
-
-    $ brew install mysql
-
-Start the MySQL server with
-
-  mysql.server start
-
-If you'd like the server to run in the background and restart at login
-
-  brew services start mysql
+Requires NodeJS and SQLite3. For local development install NodeJS from [nodejs.org](https://nodejs.org). MacOS comes with SQLite.
 
 ## Database 
 
 Create a database and tables
 
-    $ mysql -uroot < create-schema.sql
-
-Edit `create-user.sql` and set a strong password for the node user. Run the script to create the user.
-
-    $ mysql -uroot < create-user.sql
-
-## Environment
-
-The server gets the connection information from environment variables. For local development, edit `.env` and then source the file.
-
-    $ source .env
+    $ cd this/project/directory
+    $ sqlite3 app.sqlite < create-schema.sql
 
 ## NPM
 

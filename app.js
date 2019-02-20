@@ -1,6 +1,6 @@
 const express = require('express'); // Web Framework
 const app = express();
-const mysql = require('mysql');
+const sqlite = require('sqlite');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
@@ -14,38 +14,26 @@ const accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'),
 // start app with `DEBUG=app:* node .` to see logs
 const debug = require('debug')('app:server');
 
-// mysql connection pool
-const pool = mysql.createPool({
-  connectionLimit : 10,
-  host: process.env.CONN_DEV_HOST,
-  user: process.env.CONN_DEV_USER,
-  password: process.env.CONN_DEV_PASSWORD,
-  database: process.env.CONN_DEV_DB
-});
-
 // Express Middleware to verify every request contains a valid 
 // macAddress and sessionKey combination
-const authorizedDevice = function(req, res, next) {
+const authorizedDevice = async (req, res, next) => {
   const macAddress = req.body.macAddress || req.query.macAddress;
   const sessionKey = req.body.sessionKey || req.query.sessionKey;
 
   const query = 'SELECT mac_address FROM authorized_device WHERE mac_address = ? and session_key = ?';
   const params = [macAddress, sessionKey];
+  //debug(query, params);
 
-  pool.query(query, params, (error, results, fields) => {
-    if (error) {
-      console.error(error);
-      res.status(500).send('server error\n');
-    } else {
-      if (results.length === 1) {
-        debug(`${macAddress} is authorized`);
-        next();
-      } else {
-        debug(`${macAddress} is denied. Invalid sessionKey.`);
-        res.status(401).send('unauthorized\n');
-      }
-    }
-  });
+  const results = await db.get(query, params);
+
+  if (results && results.mac_address === macAddress) {
+    debug(`${macAddress} is authorized`);
+    next();
+  } else {
+    debug(`${macAddress} is denied. Invalid sessionKey.`);
+    res.status(401).send('unauthorized\n');
+  }
+  
 }
 
 app.use(logger('dev'));                                    // log to console
@@ -55,14 +43,17 @@ app.use(bodyParser.json()); 						                   // for  application/json
 app.use(bodyParser.urlencoded({extended: false}));         // for application/x-www-form-urlencoded
 app.use(authorizedDevice);                                 // check macAddress and sessionKey
 
-const server = app.listen(process.env.PORT || 8081, function () {
+let db;
+
+const server = app.listen(process.env.PORT || 8081, async () => {
     const host = server.address().address;
     const port = server.address().port;
+    db = await sqlite.open('./app.sqlite', { cached: true });
     debug('app listening at http://%s:%s', host, port)
 });
 
 // Add data point to databases
-app.post('/data', function(req,res) {
+app.post('/data', async (req, res) => {
   const macAddress = req.body.macAddress;
   const data = req.body.data;
   if (!data) {
@@ -74,54 +65,45 @@ app.post('/data', function(req,res) {
   const params = [macAddress, data];
   debug(insert, params);
 
-  pool.query(insert, params, (error, results, fields) => {
-    if (error) {
-      console.error(error);
-      res.status(500).send('server error\n');
-    } else {
-      // location header points to the new resource
-      res.location(`/data/${results.insertId}`);
-      res.status(201).send(`Created ${results.insertId}\n`);
-    }
-  });
+  const results = await db.run(insert, params);
+  
+  res.location(`/data/${results.lastID}`);
+  res.status(201).send(`Created ${results.lastID}\n`);
   
 });
 
 // Get all the data submitted for a MAC address
-app.get('/data', function(req,res) {
+app.get('/data', async (req, res) => {
   const macAddress = req.body.macAddress || req.query.macAddress;
   const query = 'SELECT id as transactionID, mac_address as macAddress, data_point as data, recorded_at as timestamp FROM readings WHERE mac_address=?';
   const params = [macAddress];
   debug(query, params);
 
-  pool.query(query, params, (error, results, fields) => {
-    // return pretty JSON which is inefficient but much easier to understand
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(results, null, 2));
-  });
+  const records = await db.all(query, params);
+  res.send(records);
+
 });
 
 // Get one record by id and MAC address
-app.get('/data/:transactionID', function(req,res) {
+app.get('/data/:transactionID', async(req, res)  => {
   const transactionID = req.params.transactionID;
   const macAddress = req.body.macAddress;
   const query = 'SELECT id as transactionID, mac_address as macAddress, data_point as data, recorded_at as timestamp FROM readings WHERE id=? AND mac_address=?';
   const params = [transactionID, macAddress];
   debug(query, params);
 
-  pool.query(query, params, (error, results, fields) => {
-    if (results.length > 0) {
-      // return pretty JSON which is inefficient but much easier to understand
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(results[0], null, 2));
-    } else {
-      res.status(404).send(`Id ${transactionID} not found for ${macAddress}\n`);
-    }
-  });
+  const record = await db.get(query, params);
+
+  if (record) {
+    res.send(record);
+  } else {
+    res.status(404).send(`Id ${transactionID} not found for ${macAddress}\n`);
+  }
+
 });
 
 // Delete one record by id and MAC address
-app.delete('/data/:transactionID', function(req,res) {
+app.delete('/data/:transactionID', async (req, res) => {
   const transactionID = req.params.transactionID;
   const macAddress = req.body.macAddress;
 
@@ -129,13 +111,14 @@ app.delete('/data/:transactionID', function(req,res) {
   const params = [macAddress, transactionID];
   debug(query, params);
 
-  pool.query(query, params, (error, results, fields) => {
-    if (results.affectedRows > 0) {
-      res.status(200).send('OK\n');
-    } else {
-      res.status(404).send(`Id ${transactionID} not found\n`);
-    }
-  });
+  const results = await db.run(query, params);
+
+  if (results.changes > 0) {
+    res.status(200).send('OK\n');
+  } else {
+    res.status(404).send(`Id ${transactionID} not found\n`);
+  }
+
 });
 
 app.get('/', function(req,res) {

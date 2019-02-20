@@ -1,9 +1,6 @@
-create database conn_dev;
-use conn_dev;
-
 -- readings holds data points from devices
 CREATE TABLE readings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     mac_address CHAR(17) NOT NULL,
     data_point TEXT,
     recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
