@@ -96,3 +96,31 @@ A HTTP GET to `/data/:id` will get the record by id for the supplied MAC address
 A HTTP DELETE to `/data/:id` will delete the record from the database
 
     curl -X DELETE -d macAddress=AA:BB:CC:DD:EE:FF -d sessionKey=12345678 http://localhost:8081/data/1
+
+## Running in production
+
+If you're going to run this on a real server, you'll need HTTPS.
+
+First thing, make sure MySQL is locked down for production. At a minimum run `sudo mysql_secure_installation`. See [Digital Ocean's MySQL installation documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-18-04) for more details.
+
+I use [UFW](https://www.digitalocean.com/community/tutorials/how-to-set-up-a-firewall-with-ufw-on-ubuntu-18-04) to only allow access to MySQL from my IP address.
+
+    ufw allow from 93.184.216.34 to any port 3306
+
+I use the nginx webserver and redirect traffic to the nodejs process. This lets nginx handle TLS and keep the node app simpler. Follow [these instructions](https://www.digitalocean.com/community/tutorials/how-to-secure-nginx-with-let-s-encrypt-on-ubuntu-18-04) to get nginx running with a TLS certificate from [Let's Encrypt](https://letsencrypt.org/).
+
+Once nginx is running we need to configure it to redirect traffic from nginx to the nodejs process. The simplest way to do this is with proxy pass. This rule sends `/conndev/` to node, so our urls look like `/conndev/data`
+
+    location /conndev/ {
+        proxy_pass http://localhost:8081/;
+    }
+
+I think a better solution is to redirect `/data` and rewrite the URL so we don't get a `/data/data` URL. This keeps the URLs the same between localhost and production. Edit `/etc/nginx/sites-available/default` and add the follow code
+
+    location  /data {
+        rewrite /data/(.*) /$1  break;
+        proxy_pass         http://localhost:8081;
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+    }
+
