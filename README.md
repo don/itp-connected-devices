@@ -109,18 +109,40 @@ I use [UFW](https://www.digitalocean.com/community/tutorials/how-to-set-up-a-fir
 
 The nginx webserver can redirect some requests to the nodejs app. This lets nginx handle TLS and keep the node app simpler. Follow [these instructions](https://www.digitalocean.com/community/tutorials/how-to-secure-nginx-with-let-s-encrypt-on-ubuntu-18-04) to get nginx running with a TLS certificate from [Let's Encrypt](https://letsencrypt.org/).
 
-Once nginx is running it needs to be configure to redirect traffic from nginx to the express app. The simplest way to do this is with proxy pass. This rule sends `/conndev/` to node, so the urls now have a prefix e.g. `/conndev/data`
+Once nginx is running it needs to be configure to send any URLs that start with `/data` to the application. Add a rule to the SSL configuration section of `/etc/nginx/sites-available/default`.
 
-    location /conndev/ {
-        proxy_pass http://localhost:8081/;
+    location /data {
+        proxy_pass http://localhost:8081;
     }
 
-A better solution is to redirect `/data` and rewrite the URL so it doesn't look like `/data/data`. This solution keeps the URLs the same between development and production. Edit `/etc/nginx/sites-available/default` and add the follow code
+Restart nginx.
 
-    location  /data {
-        rewrite /data/(.*) /$1  break;
-        proxy_pass         http://localhost:8081;
-        proxy_redirect     off;
-        proxy_set_header   Host $host;
-    }
+    service nginx restart
+
+[PM2](http://pm2.keymetrics.io) can keep your nodejs process running as a deamon on the server. Install pm2 with npm.
+
+    npm install -g pm2
+
+Change to the project directory. Install the npm modules. Source the environment and start the app with pm2.
+
+    cd itp-connected-device
+    npm install
+    source .env
+    pm2 start ./app.js
+
+Tell PM2 to restart processes when the server restarts and save your configuration.
+
+    pm2 startup
+    pm2 save
+
+Try other commands like `pm2 list` and `pm2 log`.
+
+    root@conndev:~# pm2 list
+    ┌──────────┬────┬─────────┬──────┬──────┬────────┬─────────┬────────┬──────┬───────────┬──────┬──────────┐
+    │ App name │ id │ version │ mode │ pid  │ status │ restart │ uptime │ cpu  │ mem       │ user │ watching │
+    ├──────────┼────┼─────────┼──────┼──────┼────────┼─────────┼────────┼──────┼───────────┼──────┼──────────┤
+    │ app      │ 0  │ 1.2.0   │ fork │ 1253 │ online │ 0       │ 114m   │ 0.2% │ 57.6 MB   │ root │ disabled │
+    └──────────┴────┴─────────┴──────┴──────┴────────┴─────────┴────────┴──────┴───────────┴──────┴──────────┘
+    Use `pm2 show <id|name>` to get more details about an app
+    root@conndev:~# 
 
